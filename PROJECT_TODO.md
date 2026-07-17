@@ -2,13 +2,12 @@
 
 ## 下一步
 
-- [ ] 用户复核 `docs/superpowers/specs/2026-07-18-bridgehub-design.md`。
-- [ ] 根据已确认设计编写分阶段实施计划。
-- [ ] 确认实施计划后，从 Codex app-server 协议 Spike 开始开发。
+- [ ] 选择 Phase 0A 的执行方式并执行 `docs/superpowers/plans/2026-07-18-phase-0a-codex-handshake.md`。
+- [ ] Phase 0A 验收后编写 Phase 0B Thread/Turn/Approval 实施计划。
 
 ## 进行中
 
-- [ ] 无。
+- [ ] Phase 0A 实施计划等待执行方式确认。
 
 ## 待确认
 

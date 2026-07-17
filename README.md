@@ -6,9 +6,10 @@ BridgeHub 不重新实现模型调用、Agent Loop 或 Tool Calling。V1 复用 
 
 ## 当前阶段
 
-项目处于设计阶段，尚未开始业务代码实现。
+项目设计已经批准，当前正在编写分阶段实施计划，尚未开始业务代码实现。
 
 - [V1 系统设计](docs/superpowers/specs/2026-07-18-bridgehub-design.md)
+- [Phase 0A：Codex app-server Handshake 实施计划](docs/superpowers/plans/2026-07-18-phase-0a-codex-handshake.md)
 - [项目进度](PROJECT_PROGRESS.md)
 - [项目待办](PROJECT_TODO.md)
 
