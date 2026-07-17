@@ -10,7 +10,7 @@
 
 - V1 产品范围、系统架构、通信协议、状态归属、安全边界、工程结构和验证策略已经完成讨论、文档复核并正式批准。
 - 独立 Git 仓库已初始化，完整设计已写入 `docs/superpowers/specs/2026-07-18-bridgehub-design.md`。
-- 第一份实施计划聚焦 Phase 0A Codex app-server Handshake，保存在 `docs/superpowers/plans/2026-07-18-phase-0a-codex-handshake.md`。
+- 第一份实施计划聚焦 Phase 0A Codex app-server 握手，保存在 `docs/superpowers/plans/2026-07-18-phase-0a-codex-handshake.md`。
 - 尚未开始业务代码实现。
 
 ## 已完成
@@ -30,6 +30,7 @@
 - 2026-07-18：公开协议通过 `AgentBackend` 与 Codex 私有协议隔离，为后续 Claude Code/OpenClaw 后端保留扩展点。
 - 2026-07-18：V1 使用 Workspace Allowlist、Human/Device 分离凭证、Codex Sandbox 和显式审批。
 - 2026-07-18：完整 V1 按可独立验证的子计划执行；首先完成 Phase 0A app-server Handshake，再编写 Thread/Turn/Approval 计划。
+- 2026-07-18：面向用户和项目维护的文档、计划、进度与待办统一以中文为主；代码、命令、路径、API 名称和必要的专有名词保留英文。
 
 ## 技术 / 结构备注
 
@@ -40,4 +41,4 @@
 
 ## 最近一次进展
 
-- 2026-07-18：设计文档通过用户复核；新增 Phase 0A Codex app-server Handshake 实施计划。
+- 2026-07-18：设计文档通过用户复核；新增 Phase 0A Codex app-server 握手实施计划，并将全部说明文字和预设运行手册改为中文。

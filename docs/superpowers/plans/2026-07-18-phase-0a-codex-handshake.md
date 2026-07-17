@@ -1,54 +1,54 @@
-# Phase 0A Codex app-server Handshake Implementation Plan
+# Phase 0A：Codex app-server 握手实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **供执行本计划的 Agent 使用：** 必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans` 技能，逐项执行本计划。所有步骤使用复选框（`- [ ]`）跟踪进度。
 
-**Goal:** Build a local Rust diagnostic CLI that starts the installed Codex app-server over stdio, completes the required `initialize`/`initialized` handshake, prints negotiated server information, and shuts the child down cleanly.
+**目标：** 构建一个本地 Rust 诊断 CLI。它通过 stdio 启动已安装的 Codex app-server，完成必需的 `initialize`/`initialized` 握手，打印协商得到的服务端信息，并干净地关闭子进程。
 
-**Architecture:** Create a minimal Cargo workspace containing one retained diagnostic tool under `tools/codex-spike`. Keep the JSONL handshake generic over async readers/writers so it is deterministically tested with an in-memory fake server before touching the real Codex process. Do not add Relay, Connector, SQLite, Web, Thread, Turn, or Approval behavior in this plan.
+**架构：** 创建一个最小 Cargo Workspace，并在 `tools/codex-spike` 下保留一个诊断工具。JSONL 握手逻辑面向通用异步 Reader/Writer 编写，以便先通过内存中的伪服务端完成确定性测试，再连接真实 Codex 进程。本计划不加入 Relay、Connector、SQLite、Web、Thread、Turn 或 Approval 行为。
 
-**Tech Stack:** Rust 1.96, Tokio, Serde/serde_json, Clap, thiserror, tracing/tracing-subscriber, Codex app-server 0.144.1 stdio protocol.
+**技术栈：** Rust 1.96、Tokio、Serde/serde_json、Clap、thiserror、tracing/tracing-subscriber，以及 Codex app-server 0.144.1 stdio 协议。
 
 ---
 
-## Scope and evidence
+## 范围与依据
 
-This is the first independently testable slice of Phase 0. Phase 0B adds Thread, Turn, streaming events, approvals, interrupt, and a local REPL after this handshake is proven.
+这是 Phase 0 中第一个可以独立测试的工作切片。完成并证明该握手后，Phase 0B 再加入 Thread、Turn、流式事件、审批、Interrupt 和本地 REPL。
 
-Protocol evidence:
+协议依据：
 
-- Installed CLI: `codex-cli 0.144.1` at `/opt/homebrew/bin/codex`.
-- `../codex/codex-rs/app-server/README.md:20`: stdio is newline-delimited JSON.
-- `../codex/codex-rs/app-server/README.md:83`: one `initialize` request followed by one `initialized` notification is mandatory.
-- Installed schema generated with `codex app-server generate-ts`: `InitializeParams`, `InitializeResponse`, and `ClientNotification` were checked against the installed binary.
+- 已安装的 CLI：`codex-cli 0.144.1`，路径为 `/opt/homebrew/bin/codex`。
+- `../codex/codex-rs/app-server/README.md:20`：stdio 使用以换行符分隔的 JSON。
+- `../codex/codex-rs/app-server/README.md:83`：必须先发送一次 `initialize` 请求，再发送一次 `initialized` 通知。
+- 使用 `codex app-server generate-ts` 从已安装版本生成 Schema，并已对照当前二进制检查 `InitializeParams`、`InitializeResponse` 和 `ClientNotification`。
 
-## File map
+## 文件职责
 
-- `Cargo.toml`: Workspace membership, shared metadata, dependencies, and lints.
-- `rust-toolchain.toml`: Reproducible Rust toolchain.
-- `.gitignore`: Cargo build output.
-- `tools/codex-spike/Cargo.toml`: Diagnostic package.
-- `tools/codex-spike/src/lib.rs`: Typed generic handshake.
-- `tools/codex-spike/src/main.rs`: Real child-process lifecycle.
-- `docs/development/codex-spike.md`: Operator runbook.
+- `Cargo.toml`：定义 Workspace 成员、共享元数据、依赖和 Lint 规则。
+- `rust-toolchain.toml`：固定可复现的 Rust 工具链。
+- `.gitignore`：忽略 Cargo 构建产物。
+- `tools/codex-spike/Cargo.toml`：诊断工具的软件包清单。
+- `tools/codex-spike/src/lib.rs`：带类型的通用握手逻辑。
+- `tools/codex-spike/src/main.rs`：真实子进程的生命周期管理。
+- `docs/development/codex-spike.md`：操作与排障手册。
 
-### Task 1: Bootstrap the Rust workspace
+### 任务 1：初始化 Rust Workspace
 
-**Files:**
-- Create: `.gitignore`
-- Create: `Cargo.toml`
-- Create: `rust-toolchain.toml`
-- Create: `tools/codex-spike/Cargo.toml`
-- Create: `tools/codex-spike/src/lib.rs`
+**文件：**
+- 新建：`.gitignore`
+- 新建：`Cargo.toml`
+- 新建：`rust-toolchain.toml`
+- 新建：`tools/codex-spike/Cargo.toml`
+- 新建：`tools/codex-spike/src/lib.rs`
 
-- [ ] **Step 1: Create manifests and a failing identity test**
+- [ ] **步骤 1：创建清单文件和一个必定失败的身份标识测试**
 
-Create `.gitignore`:
+创建 `.gitignore`：
 
 ```gitignore
 /target/
 ```
 
-Create `rust-toolchain.toml`:
+创建 `rust-toolchain.toml`：
 
 ```toml
 [toolchain]
@@ -57,7 +57,7 @@ components = ["clippy", "rustfmt"]
 profile = "minimal"
 ```
 
-Create root `Cargo.toml`:
+创建根目录的 `Cargo.toml`：
 
 ```toml
 [workspace]
@@ -86,7 +86,7 @@ unwrap_used = "deny"
 expect_used = "deny"
 ```
 
-Create `tools/codex-spike/Cargo.toml`:
+创建 `tools/codex-spike/Cargo.toml`：
 
 ```toml
 [package]
@@ -108,7 +108,7 @@ tracing-subscriber.workspace = true
 workspace = true
 ```
 
-Create `tools/codex-spike/src/lib.rs`:
+创建 `tools/codex-spike/src/lib.rs`：
 
 ```rust
 #[cfg(test)]
@@ -120,19 +120,19 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Verify the intended failure**
+- [ ] **步骤 2：确认测试按预期失败**
 
-Run:
+运行：
 
 ```bash
 cargo test -p bridgehub-codex-spike client_identity_is_stable
 ```
 
-Expected: compilation fails with `cannot find function client_name in module super`.
+预期：编译失败，并出现 `cannot find function client_name in module super`。
 
-- [ ] **Step 3: Add the smallest implementation**
+- [ ] **步骤 3：加入最小实现**
 
-Insert before the test module:
+在测试模块之前插入：
 
 ```rust
 pub const fn client_name() -> &'static str {
@@ -140,7 +140,7 @@ pub const fn client_name() -> &'static str {
 }
 ```
 
-- [ ] **Step 4: Run the workspace gate**
+- [ ] **步骤 4：执行 Workspace 质量检查**
 
 ```bash
 cargo fmt --all
@@ -149,23 +149,23 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-Expected: all commands succeed; one test passes.
+预期：所有命令成功，并通过 1 个测试。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5：提交改动**
 
 ```bash
 git add .gitignore Cargo.toml Cargo.lock rust-toolchain.toml tools/codex-spike
 git commit -m "build: initialize Rust workspace"
 ```
 
-### Task 2: Implement the typed JSONL handshake
+### 任务 2：实现带类型的 JSONL 握手
 
-**Files:**
-- Modify: `tools/codex-spike/src/lib.rs`
+**文件：**
+- 修改：`tools/codex-spike/src/lib.rs`
 
-- [ ] **Step 1: Add a failing in-memory handshake test**
+- [ ] **步骤 1：加入一个必定失败的内存握手测试**
 
-Add these imports and the test inside `tests`. It intentionally references `InitializeResponse` and `handshake` before implementation:
+在 `tests` 模块中加入以下导入和测试。这里会故意在实现之前引用 `InitializeResponse` 和 `handshake`：
 
 ```rust
 use std::error::Error;
@@ -230,17 +230,17 @@ async fn handshake_sends_initialize_then_initialized() -> Result<(), Box<dyn Err
 }
 ```
 
-- [ ] **Step 2: Verify the test fails**
+- [ ] **步骤 2：确认测试失败**
 
 ```bash
 cargo test -p bridgehub-codex-spike handshake_sends_initialize_then_initialized
 ```
 
-Expected: compilation fails because `InitializeResponse` and `handshake` are undefined.
+预期：由于尚未定义 `InitializeResponse` 和 `handshake`，编译失败。
 
-- [ ] **Step 3: Implement the complete handshake**
+- [ ] **步骤 3：实现完整握手流程**
 
-Replace all non-test content before `#[cfg(test)]` in `tools/codex-spike/src/lib.rs` with:
+将 `tools/codex-spike/src/lib.rs` 中 `#[cfg(test)]` 之前的所有非测试内容替换为：
 
 ```rust
 use std::path::PathBuf;
@@ -394,9 +394,9 @@ where
 }
 ```
 
-Keep `client_identity_is_stable` and `handshake_sends_initialize_then_initialized` unchanged in the test module.
+保留测试模块中的 `client_identity_is_stable` 和 `handshake_sends_initialize_then_initialized`，不要修改。
 
-- [ ] **Step 4: Run the gate**
+- [ ] **步骤 4：执行质量检查**
 
 ```bash
 cargo fmt --all
@@ -405,24 +405,24 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-Expected: all commands succeed; two tests pass.
+预期：所有命令成功，并通过 2 个测试。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5：提交改动**
 
 ```bash
 git add tools/codex-spike/src/lib.rs
 git commit -m "feat: implement Codex initialize handshake"
 ```
 
-### Task 3: Spawn and stop the real Codex process
+### 任务 3：启动并停止真实 Codex 进程
 
-**Files:**
-- Modify: `tools/codex-spike/src/lib.rs`
-- Create: `tools/codex-spike/src/main.rs`
+**文件：**
+- 修改：`tools/codex-spike/src/lib.rs`
+- 新建：`tools/codex-spike/src/main.rs`
 
-- [ ] **Step 1: Add the failing process-command test**
+- [ ] **步骤 1：加入一个必定失败的进程命令测试**
 
-Append inside the `tests` module:
+在 `tests` 模块中追加：
 
 ```rust
 #[test]
@@ -434,17 +434,17 @@ fn app_server_arguments_use_the_supported_stdio_transport() {
 }
 ```
 
-- [ ] **Step 2: Verify the test fails**
+- [ ] **步骤 2：确认测试失败**
 
 ```bash
 cargo test -p bridgehub-codex-spike app_server_arguments_use_the_supported_stdio_transport
 ```
 
-Expected: compilation fails because `app_server_args` is undefined.
+预期：由于尚未定义 `app_server_args`，编译失败。
 
-- [ ] **Step 3: Restore the minimal command contract**
+- [ ] **步骤 3：补齐最小命令约定**
 
-Insert after `client_name`:
+在 `client_name` 之后插入：
 
 ```rust
 pub const fn app_server_args() -> [&'static str; 3] {
@@ -452,9 +452,9 @@ pub const fn app_server_args() -> [&'static str; 3] {
 }
 ```
 
-- [ ] **Step 4: Implement the real binary**
+- [ ] **步骤 4：实现真实可执行程序**
 
-Create `tools/codex-spike/src/main.rs`:
+创建 `tools/codex-spike/src/main.rs`：
 
 ```rust
 use std::{error::Error, io, path::PathBuf, process::Stdio, time::Duration};
@@ -543,7 +543,7 @@ fn init_tracing() {
 }
 ```
 
-- [ ] **Step 5: Run static checks**
+- [ ] **步骤 5：执行静态检查**
 
 ```bash
 cargo fmt --all
@@ -553,23 +553,23 @@ cargo test --workspace
 cargo run -p bridgehub-codex-spike -- --help
 ```
 
-Expected: all commands succeed; three tests pass; help shows `--codex-bin <CODEX_BIN>`.
+预期：所有命令成功，通过 3 个测试，并且帮助信息中显示 `--codex-bin <CODEX_BIN>`。
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6：提交改动**
 
 ```bash
 git add tools/codex-spike/src/lib.rs tools/codex-spike/src/main.rs
 git commit -m "feat: spawn Codex app-server process"
 ```
 
-### Task 4: Prove the live handshake and document it
+### 任务 4：验证真实握手并编写文档
 
-**Files:**
-- Create: `docs/development/codex-spike.md`
-- Modify: `PROJECT_PROGRESS.md`
-- Modify: `PROJECT_TODO.md`
+**文件：**
+- 新建：`docs/development/codex-spike.md`
+- 修改：`PROJECT_PROGRESS.md`
+- 修改：`PROJECT_TODO.md`
 
-- [ ] **Step 1: Run the installed Codex binary**
+- [ ] **步骤 1：运行已经安装的 Codex 二进制文件**
 
 ```bash
 before=$(pgrep -f "codex app-server.*stdio" | sort || true)
@@ -578,7 +578,7 @@ after=$(pgrep -f "codex app-server.*stdio" | sort || true)
 test "$after" = "$before"
 ```
 
-Expected output contains:
+预期输出包含：
 
 ```text
 handshake=ok
@@ -588,59 +588,59 @@ platform_family=unix
 platform_os=macos
 ```
 
-Expected: the five output fields are present and the before/after process sets are identical, proving this run left no child.
+预期：5 个输出字段全部存在，并且运行前后的进程集合完全一致，从而证明本次运行没有遗留子进程。
 
-- [ ] **Step 2: Create the runbook**
+- [ ] **步骤 2：创建操作与排障手册**
 
-Create `docs/development/codex-spike.md`:
+创建 `docs/development/codex-spike.md`：
 
 ````markdown
-# Codex app-server Spike
+# Codex app-server 协议验证工具
 
-This diagnostic proves that BridgeHub can start the installed Codex app-server, complete its required stdio handshake, and shut it down without an orphan process.
+这个诊断工具用于证明 BridgeHub 能够启动已经安装的 Codex app-server，完成必需的 stdio 握手，并在退出时不留下孤儿进程。
 
-## Prerequisites
+## 前置条件
 
-- Rust toolchain from `rust-toolchain.toml`.
-- An installed and authenticated Codex CLI.
-- A Codex app-server version whose generated schema matches the implementation.
+- 使用 `rust-toolchain.toml` 中指定的 Rust 工具链。
+- 本机已经安装 Codex CLI，并已完成登录认证。
+- Codex app-server 生成的 Schema 必须与当前实现相匹配。
 
-## Run
+## 运行
 
 ```bash
 cargo run -p bridgehub-codex-spike -- --codex-bin /opt/homebrew/bin/codex
 ```
 
-Success prints `handshake=ok`, the Codex user agent/home, and platform information, then returns to the shell.
+成功时会打印 `handshake=ok`、Codex User Agent、Codex Home 和平台信息，随后返回 Shell。
 
-## Diagnose
+## 排查问题
 
-- `No such file or directory`: pass the correct path with `--codex-bin`.
-- `Not initialized`: compare initialize JSON with `codex app-server generate-ts`.
-- JSON decode failure: regenerate the schema from the installed binary and compare `InitializeResponse`.
-- Timeout on exit: confirm stdin is dropped and the child is killed after the two-second grace period.
+- 出现 `No such file or directory`：通过 `--codex-bin` 传入正确路径。
+- 出现 `Not initialized`：使用 `codex app-server generate-ts` 生成的结果对照 Initialize JSON。
+- JSON 解码失败：从已经安装的二进制文件重新生成 Schema，并对照 `InitializeResponse`。
+- 退出超时：确认程序已经关闭 stdin，并在 2 秒宽限期结束后终止子进程。
 
-Set `RUST_LOG=codex_app_server=debug` only for local diagnosis. Never forward this debug stream to public Relay logs.
+仅在本地排查问题时设置 `RUST_LOG=codex_app_server=debug`。绝不能把该调试输出转发到公网 Relay 日志。
 
-## Next slice
+## 下一阶段
 
-Phase 0B adds Thread start/resume, Turn start, streaming items, approvals, interrupt, and a local REPL. This tool remains the smallest dependency-health check.
+Phase 0B 将加入 Thread 的创建与恢复、Turn 启动、流式 Item、审批、Interrupt 和本地 REPL。该工具会继续作为最小依赖健康检查工具保留。
 ````
 
-- [ ] **Step 3: Update project memory**
+- [ ] **步骤 3：更新项目记忆文档**
 
-In `PROJECT_PROGRESS.md`:
+在 `PROJECT_PROGRESS.md` 中：
 
-- Change `当前阶段` from `计划` to `开发`.
-- Add under `已完成`: `Phase 0A：Rust CLI 已完成真实 Codex app-server initialize/initialized handshake，并验证无遗留子进程。`
-- Replace `最近一次进展` with the live command and successful unit/live proof dated 2026-07-18.
+- 将 `当前阶段` 从 `计划` 改为 `开发`。
+- 在 `已完成` 下加入：`Phase 0A：Rust CLI 已完成真实 Codex app-server initialize/initialized 握手，并验证无遗留子进程。`
+- 将 `最近一次进展` 替换为 2026-07-18 执行的真实命令，以及单元测试和真实环境验证均成功的结果。
 
-In `PROJECT_TODO.md`:
+在 `PROJECT_TODO.md` 中：
 
-- Remove the Phase 0A execution and in-progress entries.
-- Make `编写 Phase 0B Thread/Turn/Approval 实施计划` the first `下一步` item.
+- 删除 Phase 0A 的执行项和进行中事项。
+- 将 `编写 Phase 0B Thread/Turn/Approval 实施计划` 设为 `下一步` 中的第一项。
 
-- [ ] **Step 4: Run the final gate**
+- [ ] **步骤 4：执行最终质量检查**
 
 ```bash
 cargo fmt --all
@@ -650,20 +650,20 @@ cargo test --workspace
 git diff --check
 ```
 
-Expected: all commands succeed with three tests passing and no whitespace errors.
+预期：所有命令成功，通过 3 个测试，并且不存在空白字符错误。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5：提交改动**
 
 ```bash
 git add docs/development/codex-spike.md PROJECT_PROGRESS.md PROJECT_TODO.md
 git commit -m "docs: record Codex handshake proof"
 ```
 
-## Completion criteria
+## 完成标准
 
-- In-memory fake server proves exact `initialize` then `initialized` ordering.
-- EOF, wrong response ID, server error, invalid JSON, and missing result have typed errors.
-- The installed Codex app-server returns a typed `InitializeResponse`.
-- The CLI exits within the grace period and leaves no child process.
-- No Relay, Connector, Web, SQLite, Thread, Turn, or Approval code is introduced.
-- Project memory points to Phase 0B.
+- 内存伪服务端能够证明严格遵循先 `initialize`、后 `initialized` 的顺序。
+- EOF、响应 ID 错误、服务端错误、无效 JSON 和缺少 Result 都有对应的类型化错误。
+- 已安装的 Codex app-server 能够返回带类型的 `InitializeResponse`。
+- CLI 在宽限期内退出，并且不遗留子进程。
+- 不引入任何 Relay、Connector、Web、SQLite、Thread、Turn 或 Approval 代码。
+- 项目记忆文档将下一阶段指向 Phase 0B。
