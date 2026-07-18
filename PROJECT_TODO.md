@@ -2,12 +2,12 @@
 
 ## 下一步
 
-- [ ] 选择 Phase 0A 的执行方式并执行 `docs/superpowers/plans/2026-07-18-phase-0a-codex-handshake.md`。
-- [ ] Phase 0A 验收后编写 Phase 0B Thread/Turn/Approval 实施计划。
+- [ ] 编写 Phase 0B Thread/Turn/Approval 实施计划。
+- [ ] Phase 0B 计划批准后，实现 Thread 创建与恢复、Turn 启动、流式事件、审批、Interrupt 和本地 REPL。
 
 ## 进行中
 
-- [ ] Phase 0A 实施计划等待执行方式确认。
+- [ ] 无。
 
 ## 待确认
 
