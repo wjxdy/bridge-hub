@@ -9,6 +9,10 @@ pub const fn client_name() -> &'static str {
     "bridgehub"
 }
 
+pub const fn app_server_args() -> [&'static str; 3] {
+    ["app-server", "--listen", "stdio://"]
+}
+
 #[derive(Debug, Error)]
 pub enum HandshakeError {
     #[error("app-server closed stdout before initialize completed")]
@@ -160,6 +164,14 @@ mod tests {
     #[test]
     fn client_identity_is_stable() {
         assert_eq!(super::client_name(), "bridgehub");
+    }
+
+    #[test]
+    fn app_server_arguments_use_the_supported_stdio_transport() {
+        assert_eq!(
+            super::app_server_args(),
+            ["app-server", "--listen", "stdio://"]
+        );
     }
 
     #[tokio::test]
