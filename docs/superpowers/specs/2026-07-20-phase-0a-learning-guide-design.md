@@ -1,5 +1,8 @@
 # BridgeHub Phase 0A 手敲学习教程设计
 
+> [!WARNING]
+> 这是教程设计说明，不是学习者的操作教程。正式教程请打开 `docs/learning/phase-0a-from-scratch.md`。
+
 ## 1. 背景
 
 学习者有软件开发和 Web 应用开发经验，但暂时不熟悉操作系统进程、标准输入输出、管道、异步运行时和 Codex app-server 协议。
@@ -74,6 +77,15 @@ docs/learning/phase-0a-from-scratch.md
 9. 常见错误、检查位置和修复方向。
 10. 完成检查框，方便中断后继续。
 
+每次创建或修改文件之前，教程必须先单独写明：
+
+- 文件相对于项目根目录的位置。
+- 文件的绝对路径。
+- 该文件在目录树中的层级。
+- 使用 Neovim 打开或创建它的完整命令。
+
+不能只写“创建某文件”，也不能假设学习者知道“根目录”具体指哪里。
+
 教程不设置需要学习者自行设计答案的开放式作业。可以加入简短的理解检查，但答案必须紧随其后，不增加不必要的思考等待。
 
 ## 7. 代码呈现规则
@@ -133,9 +145,9 @@ pub const fn client_name() -> &'static str {
 
 ### 第 2 章：认识 Cargo 与 Rust Workspace
 
-- 创建 `rust-toolchain.toml`。
-- 创建根 `Cargo.toml`。
-- 创建 `tools/codex-spike/Cargo.toml`。
+- 在项目根目录创建 `/Users/xulei/.dev/bridge-hub/rust-toolchain.toml`。
+- 在项目根目录创建 `/Users/xulei/.dev/bridge-hub/Cargo.toml`。
+- 创建 `/Users/xulei/.dev/bridge-hub/tools/codex-spike/Cargo.toml`。
 - 解释 Workspace、Package、Crate 和依赖。
 
 ### 第 3 章：第一个 TDD 循环
@@ -237,6 +249,7 @@ Codex 不在 `/Users/xulei/.dev/bridge-hub` 中执行项目命令。学习者根
 - 学习者不需要自行补代码或猜命令。
 - 每个新概念都在第一次使用前解释。
 - 每一段代码都说明其输入、输出和运行位置。
+- 每个文件在创建前都提供相对路径、绝对路径、目录层级和 Neovim 命令。
 - 所有关键代码行都能在代码块内部找到中文解释。
 - 每个步骤都有明确的成功或预期失败信号。
 - 教程完整覆盖当前 Phase 0A 实现。

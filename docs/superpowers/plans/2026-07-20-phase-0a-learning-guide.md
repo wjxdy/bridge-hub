@@ -1,5 +1,8 @@
 # BridgeHub Phase 0A 手敲学习教程 Implementation Plan
 
+> [!WARNING]
+> 这是供 Codex 编写教程使用的内部实施计划，不是学习者的操作教程，请不要照着本文件手敲。正式教程请打开 `docs/learning/phase-0a-from-scratch.md`。
+
 > **供执行本计划的 Agent 使用：** 必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`，逐项编写教程。所有步骤使用复选框（`- [ ]`）跟踪。执行者只能编辑学习文档，不能替学习者执行教程中的项目命令或创建项目代码。
 
 **目标：** 编写一份从零开始的中文手敲教程，让有应用开发经验但不了解进程通信和 Codex app-server 的学习者，通过亲手输入全部命令与完整代码，实现 Phase 0A 初始化握手。
@@ -18,6 +21,7 @@
 - 禁止创建：`Cargo.toml`、`rust-toolchain.toml`、`.gitignore`、`tools/**`、Rust 源文件和 `Cargo.lock`。
 - 目标目录不是 Git 仓库。不要初始化仓库，也不要提交文档；学习者会亲自执行 `git init`。
 - 所有示例均使用 `/Users/xulei/.dev/bridge-hub`，不能误写成只读参考目录 `/Users/xulei/.dev/bridgehub`。
+- 每次让学习者创建或编辑文件前，必须先给出相对路径、绝对路径、目录树位置和完整 Neovim 命令。
 
 ## 文件职责
 
@@ -100,6 +104,15 @@ git status
 
 - [ ] **步骤 3：指导创建 `.gitignore`**
 
+必须先给出：
+
+```text
+相对路径：.gitignore
+绝对路径：/Users/xulei/.dev/bridge-hub/.gitignore
+所在位置：项目根目录
+Neovim 命令：nvim .gitignore
+```
+
 要求学习者亲手创建，完整内容为：
 
 ```gitignore
@@ -137,10 +150,44 @@ mkdir -p tools/codex-spike/src
 
 逐项解释 `mkdir`、`-p` 和目录层级。不使用 `cargo new`，因为学习者要亲手创建每个文件。
 
+在创建文件前展示本章目标目录树：
+
+```text
+/Users/xulei/.dev/bridge-hub/
+├── Cargo.toml
+├── rust-toolchain.toml
+└── tools/
+    └── codex-spike/
+        ├── Cargo.toml
+        └── src/
+```
+
 - [ ] **步骤 3：加入完整注释版 `rust-toolchain.toml`**
 
+必须先明确：
+
+```text
+相对路径：rust-toolchain.toml
+绝对路径：/Users/xulei/.dev/bridge-hub/rust-toolchain.toml
+所在位置：项目根目录，与根 Cargo.toml 同级
+```
+
+学习者从项目根目录执行：
+
+```bash
+nvim rust-toolchain.toml
+```
+
+如果学习者已经打开了一个无文件名 Buffer，则使用：
+
+```vim
+:w /Users/xulei/.dev/bridge-hub/rust-toolchain.toml
+```
+
+解释 `rust-toolchain.toml` 放在 Workspace 根目录后，Rust 工具链管理器会让这个目录及其子目录中的 Cargo 命令使用同一工具链。
+
 ```toml
-# [toolchain] 开始声明这个项目使用的 Rust 工具链配置。
+# [toolchain] 开始声明这个项目使用的 Rust 工具链配置。i
 [toolchain]
 # 固定 Rust 1.96.0，避免不同机器使用不同编译器版本。
 channel = "1.96.0"
@@ -151,6 +198,15 @@ profile = "minimal"
 ```
 
 - [ ] **步骤 4：加入完整注释版根 `Cargo.toml`**
+
+必须先给出：
+
+```text
+相对路径：Cargo.toml
+绝对路径：/Users/xulei/.dev/bridge-hub/Cargo.toml
+所在位置：项目根目录
+Neovim 命令：nvim Cargo.toml
+```
 
 必须逐行覆盖标准答案中的 `[workspace]`、`members`、Resolver、共享 Package 元数据、7 个依赖及 Feature、Rust Lint 和 Clippy Lint。注释不得改变：
 
@@ -163,6 +219,15 @@ rust-version = "1.96"
 ```
 
 - [ ] **步骤 5：加入完整注释版 Crate `Cargo.toml`**
+
+必须先给出：
+
+```text
+相对路径：tools/codex-spike/Cargo.toml
+绝对路径：/Users/xulei/.dev/bridge-hub/tools/codex-spike/Cargo.toml
+所在位置：tools/codex-spike 目录
+Neovim 命令：nvim tools/codex-spike/Cargo.toml
+```
 
 逐行覆盖参考 Crate 清单，解释 `bridgehub-codex-spike` 为什么在 Rust `use` 中变为 `bridgehub_codex_spike`、`.workspace = true` 的继承语义和统一 Lint。
 
@@ -184,6 +249,15 @@ find . -maxdepth 4 -type f | sort
 用核心规则开头：测试先描述“代码应该做什么”，观察它因能力不存在而失败，再加入最小实现。
 
 - [ ] **步骤 2：加入预期失败的完整 `lib.rs`**
+
+必须先给出：
+
+```text
+相对路径：tools/codex-spike/src/lib.rs
+绝对路径：/Users/xulei/.dev/bridge-hub/tools/codex-spike/src/lib.rs
+所在位置：tools/codex-spike/src 目录
+Neovim 命令：nvim tools/codex-spike/src/lib.rs
+```
 
 ```rust
 // #[cfg(test)] 表示这个模块只在运行测试时参与编译。
@@ -376,6 +450,15 @@ pub const fn app_server_args() -> [&'static str; 3] {
 
 - [ ] **步骤 2：逐段注释完整 `main.rs`**
 
+必须先给出：
+
+```text
+相对路径：tools/codex-spike/src/main.rs
+绝对路径：/Users/xulei/.dev/bridge-hub/tools/codex-spike/src/main.rs
+所在位置：tools/codex-spike/src 目录，与 lib.rs 同级
+Neovim 命令：nvim tools/codex-spike/src/main.rs
+```
+
 必须完整覆盖 `/Users/xulei/.dev/bridgehub/tools/codex-spike/src/main.rs`，按下列顺序解释：
 
 1. 标准库与第三方导入。
@@ -520,6 +603,7 @@ rg -n '^#{1,4} ' docs/learning/phase-0a-from-scratch.md
 - 所有命令完整、可手敲、参数有中文解释。
 - 所有最终代码与已经验证的 Phase 0A 标准答案一致。
 - 每一行新代码在代码块内部有中文注释或紧邻的结构解释。
+- 每个文件在创建前都有相对路径、绝对路径、目录树位置和 Neovim 命令。
 - TDD 红色和绿色阶段顺序正确，预期错误与测试数量明确。
 - 没有要求学习者自行设计或补齐代码。
 - 没有混入 Phase 0B 或完整 BridgeHub 架构。
