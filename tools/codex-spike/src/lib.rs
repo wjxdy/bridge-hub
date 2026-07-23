@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
-use clap::error;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite};
 
 pub const fn client_name() -> &'static str {
     "bridgehub"
@@ -37,7 +38,6 @@ pub struct InitializeResponse {
     pub platfrom_os: String,
 }
 
-
 struct Request<T> {
     method: &'static str,
     id: u64,
@@ -48,7 +48,6 @@ struct Notification {
     method: &'static str,
 }
 
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct InitializeParams {
@@ -56,18 +55,75 @@ struct InitializeParams {
     capabilities: InitializeCapabilities,
 }
 
-
 #[derive(Debug, Serialize)]
 struct ClientInfo {
-    name: &static str,
-    title: &static str,
-    version: &static str,
+    name: &'static str,
+    title: &'static str,
+    version: &'static str,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InitializeCapabilities {
+    experimental_api: bool,
+    request_attestation: bool,
+}
 
+#[derive(Debug, Deserialize)]
+struct ResponseEnvelope {
+    id: u64,
+    #[serde(default)]
+    result: Option<Value>,
+    #[serde(default)]
+    error: Option<RpcError>,
+}
 
+#[derive(Debug, Deserialize)]
+struct RpcError {
+    code: i64,
+    message: String,
+}
 
+pub async fn handshake<R, W>(
+    reader: &mut R,
+    writer: &mut W,
+) -> Result<InitializeResponse, HandShakeError>
+where
+    R: AsyncBufRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    let request = Request {
+        method: "initialize",
+        id: 0,
+        params: InitializeParams {
+            client_info: ClientInfo {
+                name: client_name(),
+                title: "BridgeHub",
+                version: env!("CARGO_PKG_VERSION"),
+            },
+            capabilities: InitializeCapabilities {
+                experimental_api: false,
+                request_attestation: false,
+            },
+        },
+    };
 
+    write_json_line(writer, &request).await?;
+
+    let mut line = String::new();
+
+    if reader.read_line(&mut line).await? == 0 {
+        return Err(HandShakeError::UnexpectedEof);
+    }
+
+    let envelope: ResponseEnvelope = serde_json::from_str(&line)?;
+
+    if envelope.id != 0 {
+        return Err(HandShakeError::UnexpectedResponseId {
+            actual: envelope.id,
+        });
+    }
+}
 
 #[cfg(test)]
 mod tests {
