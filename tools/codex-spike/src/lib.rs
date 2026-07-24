@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use thiserror::Error;
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
 
 pub const fn client_name() -> &'static str {
     "bridgehub"
@@ -34,16 +35,18 @@ pub enum HandShakeError {
 pub struct InitializeResponse {
     pub user_agent: String,
     pub codex_home: PathBuf,
-    pub platfrom_family: String,
-    pub platfrom_os: String,
+    pub platform_family: String,
+    pub platform_os: String,
 }
 
+#[derive(Debug, Serialize)]
 struct Request<T> {
     method: &'static str,
     id: u64,
     params: T,
 }
 
+#[derive(Debug, Serialize)]
 struct Notification {
     method: &'static str,
 }
@@ -123,6 +126,41 @@ where
             actual: envelope.id,
         });
     }
+
+    if let Some(error) = envelope.error {
+        return Err(HandShakeError::Server {
+            code: error.code,
+            message: error.message,
+        });
+    }
+
+    let result = envelope.result.ok_or(HandShakeError::MissingResult)?;
+    let response = serde_json::from_value(result)?;
+
+    write_json_line(
+        writer,
+        &Notification {
+            method: "initialized",
+        },
+    )
+    .await?;
+
+    Ok(response)
+}
+
+async fn write_json_line<W, T>(writer: &mut W, value: &T) -> Result<(), HandShakeError>
+where
+    W: AsyncWrite + Unpin,
+    T: Serialize,
+{
+    let mut json = serde_json::to_vec(value)?;
+
+    json.push(b'\n');
+    writer.write_all(&json).await?;
+
+    writer.flush().await?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -131,9 +169,9 @@ mod tests {
     use std::error::Error;
 
     use serde_json::{Value, json};
-    use tokio::io::{AsyncWriteExt, BufReader, BufWriter};
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
 
-    use super::{InitalizeResponse, handshake};
+    use super::{InitializeResponse, handshake};
 
     #[test]
     fn client_identity_is_stable() {
@@ -150,11 +188,11 @@ mod tests {
         let (server_reader, mut server_writer) = tokio::io::split(server_io);
 
         let fake_server = tokio::spawn(async move {
-            let mut reader = BufWriter::new(server_reader);
+            let mut reader = BufReader::new(server_reader);
 
             let mut initialize_line = String::new();
 
-            reader.readline(&mut initialize_line).await?;
+            reader.read_line(&mut initialize_line).await?;
 
             let initialize: Value = serde_json::from_str(&initialize_line)?;
 
@@ -170,10 +208,10 @@ mod tests {
             let response = json!({
                 "id": 0,
                 "result": {
-                    "userAgent": "codex_cli_rs/test",
+                    "userAgent": "codex-cli_rs/test",
                     "codexHome": "/tmp/codex-home",
-                    "platfromFamily": "unix",
-                    "platfromfromOs": "macos"
+                    "platformFamily": "unix",
+                    "platformOs": "macos"
                 }
             });
 
@@ -187,9 +225,9 @@ mod tests {
 
             let mut initialized_line = String::new();
 
-            reader.read_line(&mut initialize_line).await?;
+            reader.read_line(&mut initialized_line).await?;
 
-            let initialized: Value = serde_json::from_str(&initialize_line)?;
+            let initialized: Value = serde_json::from_str(&initialized_line)?;
 
             assert_eq!(initialized, json!({ "method": "initialized" }));
 
@@ -202,15 +240,15 @@ mod tests {
 
         assert_eq!(
             result,
-            InitalizeResponse {
+            InitializeResponse {
                 user_agent: "codex-cli_rs/test".to_owned(),
                 codex_home: "/tmp/codex-home".into(),
-                platfrom_family: "unix".to_owned(),
-                platfrom_os: "macos".to_owned(),
+                platform_family: "unix".to_owned(),
+                platform_os: "macos".to_owned(),
             }
         );
 
-        fake_server.await?;
+        fake_server.await??;
 
         Ok(())
     }
