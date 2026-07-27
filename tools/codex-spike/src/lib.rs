@@ -9,6 +9,10 @@ pub const fn client_name() -> &'static str {
     "bridgehub"
 }
 
+pub const fn app_server_args() -> [&'static str; 3] {
+    ["app-server", "--listen", "stdio://"]
+}
+
 #[derive(Debug, Error)]
 pub enum HandShakeError {
     #[error("app-server closed before initialize completed")]
@@ -168,10 +172,58 @@ mod tests {
 
     use std::error::Error;
 
+    use super::{HandShakeError, InitializeResponse, handshake};
     use serde_json::{Value, json};
-    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-    use super::{InitializeResponse, handshake};
+    fn add_server_arguments_use_supported_stdio_transport() {
+        assert_eq!(
+            super::app_server_args(),
+            ["app_server", "--listen", "stdio://"]
+        );
+    }
+
+    #[tokio::test]
+    async fn handshake_reprots_eof_before_response() {
+        let mut reader = BufReader::new(tokio::io::empty());
+        let mut writer = tokio::io::sink();
+
+        let result = handshake(&mut reader, &mut writer).await;
+
+        assert!(matches!(result, Err(HandShakeError::UnexpectedEof)));
+    }
+
+    #[tokio::test]
+    async fn handshake_rejects_response_for_another_request() {
+        let response = b"{\"id\":7,\"result\":{}}\n";
+
+        let mut reader = BufReader::new(&response[..]);
+
+        let mut writer = tokio::io::sink();
+
+        let result = handshake(&mut reader, &mut writer).await;
+
+        assert!(matches!(
+            result,
+            Err(HandShakeError::UnexpectedResponseId { actual: 7 })
+        ));
+    }
+
+    #[tokio::test]
+    async fn handshake_proserves_server_error() {
+        let response =
+            b"{\"id\":0,\"error\":{\"code\":-32600,\"message\":\"initialize rejected\"}}\n";
+        let mut reader = BufReader::new(&response[..]);
+        let mut writer = tokio::io::sink();
+
+        let result = handshake(&mut reader, &mut writer).await;
+
+        assert!(matches!(
+            result,
+            Err(HandShakeError::Server { code: -32600, message})
+                if message == "initialize rejected"
+        ));
+    }
 
     #[test]
     fn client_identity_is_stable() {
