@@ -1,10 +1,16 @@
 [package]
+
 name = "bridgehub-codex-spike"
+
 version.workspace = true
+
 edition.workspace = true
+
 rust-version.workspace = true
 
 [dependencies]
+
+process-wrap.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -14,4 +20,5 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [lints]
+
 workspace = true

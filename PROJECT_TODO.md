@@ -2,8 +2,9 @@
 
 ## 下一步
 
-- [ ] 编写 Phase 0B Thread/Turn/Approval 实施计划。
-- [ ] Phase 0B 计划批准后，实现 Thread 创建与恢复、Turn 启动、流式事件、审批、Interrupt 和本地 REPL。
+- [ ] 用户复核 `docs/superpowers/specs/2026-07-18-bridgehub-design.md`。
+- [ ] 根据已确认设计编写分阶段实施计划。
+- [ ] 确认实施计划后，从 Codex app-server 协议 Spike 开始开发。
 
 ## 进行中
 

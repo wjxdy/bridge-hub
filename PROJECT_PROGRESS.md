@@ -3,15 +3,14 @@
 ## 基本信息
 
 - 项目名称：BridgeHub
-- 当前阶段：开发
+- 当前阶段：设计
 - 最后更新：2026-07-18
 
 ## 当前状态
 
-- V1 产品范围、系统架构、通信协议、状态归属、安全边界、工程结构和验证策略已经完成讨论、文档复核并正式批准。
+- V1 产品范围、系统架构、通信协议、状态归属、安全边界、工程结构和验证策略已经完成讨论并获得确认。
 - 独立 Git 仓库已初始化，完整设计已写入 `docs/superpowers/specs/2026-07-18-bridgehub-design.md`。
-- Phase 0A 已完成：Rust 诊断 CLI 可以启动本机 Codex app-server，完成 `initialize`/`initialized` 握手，并正常回收子进程。
-- 下一阶段是编写并执行 Phase 0B Thread/Turn/Approval 实施计划。
+- 尚未开始业务代码实现。
 
 ## 已完成
 
@@ -20,7 +19,6 @@
 - 确认 Relay 可信但不持久化聊天正文，不要求 V1 端到端加密。
 - 确认 V1 只支持 Codex、文本输入和单用户部署。
 - 确认 Rust 核心、TypeScript Web、Tokio Actor、SQLite 和 JSONL/JSON-RPC 技术路线。
-- Phase 0A：Rust CLI 已完成真实 Codex app-server `initialize`/`initialized` 握手，并验证无遗留子进程。
 
 ## 关键决策
 
@@ -30,8 +28,6 @@
 - 2026-07-18：Relay 只保存设备和 Session 路由元数据；Codex 是会话内容的唯一持久化真相。
 - 2026-07-18：公开协议通过 `AgentBackend` 与 Codex 私有协议隔离，为后续 Claude Code/OpenClaw 后端保留扩展点。
 - 2026-07-18：V1 使用 Workspace Allowlist、Human/Device 分离凭证、Codex Sandbox 和显式审批。
-- 2026-07-18：完整 V1 按可独立验证的子计划执行；首先完成 Phase 0A app-server Handshake，再编写 Thread/Turn/Approval 计划。
-- 2026-07-18：面向用户和项目维护的文档、计划、进度与待办统一以中文为主；代码、命令、路径、API 名称和必要的专有名词保留英文。
 
 ## 技术 / 结构备注
 
@@ -42,4 +38,4 @@
 
 ## 最近一次进展
 
-- 2026-07-18：`cargo fmt`、Clippy 和 3 个测试全部通过；使用 `/opt/homebrew/bin/codex` 完成真实握手，得到 Codex 0.144.1、Codex Home 和 macOS 平台信息，且运行前后的 Codex app-server 进程集合一致。
+- 2026-07-18：初始化项目仓库，创建 README、项目记忆与完整 V1 设计文档。

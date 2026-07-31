@@ -14,17 +14,22 @@ pub const fn app_server_args() -> [&'static str; 3] {
 }
 
 #[derive(Debug, Error)]
-pub enum HandshakeError {
-    #[error("app-server closed stdout before initialize completed")]
+pub enum HandShakeError {
+    #[error("app-server closed before initialize completed")]
     UnexpectedEof,
+
     #[error("initialize response id was {actual}, expected 0")]
     UnexpectedResponseId { actual: u64 },
+
     #[error("initialize response did not contain result or error")]
     MissingResult,
+
     #[error("app-server rejected initialize with {code}: {message}")]
     Server { code: i64, message: String },
+
     #[error("stdio I/O failed: {0}")]
     Io(#[from] std::io::Error),
+
     #[error("invalid JSON from app-server: {0}")]
     Json(#[from] serde_json::Error),
 }
@@ -89,7 +94,7 @@ struct RpcError {
 pub async fn handshake<R, W>(
     reader: &mut R,
     writer: &mut W,
-) -> Result<InitializeResponse, HandshakeError>
+) -> Result<InitializeResponse, HandShakeError>
 where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -109,25 +114,31 @@ where
             },
         },
     };
+
     write_json_line(writer, &request).await?;
 
     let mut line = String::new();
+
     if reader.read_line(&mut line).await? == 0 {
-        return Err(HandshakeError::UnexpectedEof);
+        return Err(HandShakeError::UnexpectedEof);
     }
+
     let envelope: ResponseEnvelope = serde_json::from_str(&line)?;
+
     if envelope.id != 0 {
-        return Err(HandshakeError::UnexpectedResponseId {
+        return Err(HandShakeError::UnexpectedResponseId {
             actual: envelope.id,
         });
     }
+
     if let Some(error) = envelope.error {
-        return Err(HandshakeError::Server {
+        return Err(HandShakeError::Server {
             code: error.code,
             message: error.message,
         });
     }
-    let result = envelope.result.ok_or(HandshakeError::MissingResult)?;
+
+    let result = envelope.result.ok_or(HandShakeError::MissingResult)?;
     let response = serde_json::from_value(result)?;
 
     write_json_line(
@@ -137,34 +148,33 @@ where
         },
     )
     .await?;
+
     Ok(response)
 }
 
-async fn write_json_line<W, T>(writer: &mut W, value: &T) -> Result<(), HandshakeError>
+async fn write_json_line<W, T>(writer: &mut W, value: &T) -> Result<(), HandShakeError>
 where
     W: AsyncWrite + Unpin,
     T: Serialize,
 {
     let mut json = serde_json::to_vec(value)?;
+
     json.push(b'\n');
     writer.write_all(&json).await?;
+
     writer.flush().await?;
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+
     use std::error::Error;
 
+    use super::{HandShakeError, InitializeResponse, handshake};
     use serde_json::{Value, json};
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-
-    use super::{InitializeResponse, handshake};
-
-    #[test]
-    fn client_identity_is_stable() {
-        assert_eq!(super::client_name(), "bridgehub");
-    }
 
     #[test]
     fn app_server_arguments_use_the_supported_stdio_transport() {
@@ -175,20 +185,74 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn handshake_reports_eof_before_response() {
+        let mut reader = BufReader::new(tokio::io::empty());
+        let mut writer = tokio::io::sink();
+
+        let result = handshake(&mut reader, &mut writer).await;
+
+        assert!(matches!(result, Err(HandShakeError::UnexpectedEof)));
+    }
+
+    #[tokio::test]
+    async fn handshake_rejects_response_for_another_request() {
+        let response = b"{\"id\":7,\"result\":{}}\n";
+
+        let mut reader = BufReader::new(&response[..]);
+
+        let mut writer = tokio::io::sink();
+
+        let result = handshake(&mut reader, &mut writer).await;
+
+        assert!(matches!(
+            result,
+            Err(HandShakeError::UnexpectedResponseId { actual: 7 })
+        ));
+    }
+
+    #[tokio::test]
+    async fn handshake_preserves_server_error() {
+        let response =
+            b"{\"id\":0,\"error\":{\"code\":-32600,\"message\":\"initialize rejected\"}}\n";
+        let mut reader = BufReader::new(&response[..]);
+        let mut writer = tokio::io::sink();
+
+        let result = handshake(&mut reader, &mut writer).await;
+
+        assert!(matches!(
+            result,
+            Err(HandShakeError::Server { code: -32600, message})
+                if message == "initialize rejected"
+        ));
+    }
+
+    #[test]
+    fn client_identity_is_stable() {
+        assert_eq!(super::client_name(), "bridgehub");
+    }
+
+    #[tokio::test]
     async fn handshake_sends_initialize_then_initialized()
     -> Result<(), Box<dyn Error + Send + Sync>> {
         let (client_io, server_io) = tokio::io::duplex(8 * 1024);
+
         let (client_reader, mut client_writer) = tokio::io::split(client_io);
+
         let (server_reader, mut server_writer) = tokio::io::split(server_io);
 
         let fake_server = tokio::spawn(async move {
             let mut reader = BufReader::new(server_reader);
+
             let mut initialize_line = String::new();
+
             reader.read_line(&mut initialize_line).await?;
+
             let initialize: Value = serde_json::from_str(&initialize_line)?;
+
             assert_eq!(initialize["method"], "initialize");
-            assert_eq!(initialize["id"], 0);
+
             assert_eq!(initialize["params"]["clientInfo"]["name"], "bridgehub");
+
             assert_eq!(
                 initialize["params"]["capabilities"]["experimentalApi"].as_bool(),
                 Some(false)
@@ -197,37 +261,48 @@ mod tests {
             let response = json!({
                 "id": 0,
                 "result": {
-                    "userAgent": "codex_cli_rs/test",
+                    "userAgent": "codex-cli_rs/test",
                     "codexHome": "/tmp/codex-home",
                     "platformFamily": "unix",
                     "platformOs": "macos"
                 }
             });
+
             server_writer
                 .write_all(response.to_string().as_bytes())
                 .await?;
+
             server_writer.write_all(b"\n").await?;
+
             server_writer.flush().await?;
 
             let mut initialized_line = String::new();
+
             reader.read_line(&mut initialized_line).await?;
+
             let initialized: Value = serde_json::from_str(&initialized_line)?;
+
             assert_eq!(initialized, json!({ "method": "initialized" }));
+
             Ok::<(), Box<dyn Error + Send + Sync>>(())
         });
 
         let mut reader = BufReader::new(client_reader);
+
         let result = handshake(&mut reader, &mut client_writer).await?;
+
         assert_eq!(
             result,
             InitializeResponse {
-                user_agent: "codex_cli_rs/test".to_owned(),
+                user_agent: "codex-cli_rs/test".to_owned(),
                 codex_home: "/tmp/codex-home".into(),
                 platform_family: "unix".to_owned(),
                 platform_os: "macos".to_owned(),
             }
         );
+
         fake_server.await??;
+
         Ok(())
     }
 }
