@@ -6,22 +6,23 @@ use std::{
     time::Duration,
 };
 
-use bridgehub_codex_spike::{HandShakeError, app_server_args, handshake};
-use clap::{Args, Error, Parser};
+use bridgehub_codex_spike::{app_server_args, handshake};
+use clap::Parser;
 
 #[cfg(windows)]
-use process_warp::tokio::Jobject;
+use process_wrap::tokio::JobObject;
 
 #[cfg(unix)]
-use process_warp::tokio::{ChildWrapper, CommandWarp, KillOnDrop};
+use process_wrap::tokio::ProcessGroup;
+use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
 
 use tokio::{
-    io::{AsyncBufRead, AsyncBufReadExt, BufReader},
+    io::{AsyncBufReadExt, BufReader},
     task::JoinHandle,
     time::{Instant, sleep, timeout},
 };
 
-use tracing::{debug, field::debug};
+use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -30,30 +31,29 @@ const EXIT_GRACE_PERIOD: Duration = Duration::from_secs(2);
 
 const EXIT_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
-const STDERR_DAIN_TIMEOUT: Duration = Duration::from_secs(1);
-
+const STDERR_DRAIN_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Parser)]
-#[command(about= "Verify the Codex app-Server stdio initialize handshare")]
-struct Arg {
+#[command(about = "Verify the Codex app-server stdio initialize handshake")]
+struct Args {
     #[arg(long, default_value = "codex")]
     codex_bin: PathBuf,
 }
 
 #[tokio::main]
-async fn main() -> result<(), Box<dey Error>> {
+async fn main() -> Result<(), Box<dyn Error>> {
     init_tracing();
-    run(Arg::parse()).await
+    run(Args::parse()).await
 }
 
-async fn run(arg: Args) -> Result<(), Box<dyn Error>> {
-    let mut command = CommandWarp::with_new(&args.codex_bin, |command| {
+async fn run(args: Args) -> Result<(), Box<dyn Error>> {
+    let mut command = CommandWrap::with_new(&args.codex_bin, |command| {
         command
             .args(app_server_args())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-    })
+    });
 
     command.wrap(KillOnDrop);
 
@@ -83,26 +83,31 @@ async fn run(arg: Args) -> Result<(), Box<dyn Error>> {
 
         Ok::<(), io::Error>(())
     });
-    
-    let mut reader =BufReader::new(stdout);
 
-    let HandShake_result: Result<_, Box<dyn Error>> = 
+    let mut reader = BufReader::new(stdout);
+
+    let handshake_result: Result<_, Box<dyn Error>> =
         match timeout(HANDSHAKE_TIMEOUT, handshake(&mut reader, &mut stdin)).await {
-            Ok(result) => result.map_err(Into.into),
-            Err(_) => Err(io::Error::new(io::ErrorKind, format!("Codex initialize handshake exceeded {HANDSHAKE_TIMEOUT:?}"),
-        )
-        ).into(),
-       }; 
+            Ok(result) => result.map_err(Into::into),
+            Err(_) => Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                format!("Codex initialize handshake exceeded {HANDSHAKE_TIMEOUT:?}"),
+            )
+            .into()),
+        };
 
     drop(stdin);
     drop(reader);
 
     let shutdown_result = wait_or_kill(child.as_mut(), EXIT_GRACE_PERIOD).await;
-    if HandShake_result.is_err() && Err(error) = &shutdown_result {
-        debug(&error, "Codex cleanup also failed after handshake error");
+    finish_stderr_task(&mut stderr_task).await;
+    if handshake_result.is_err()
+        && let Err(error) = &shutdown_result
+    {
+        debug!(%error, "Codex cleanup also failed after handshake error");
     }
 
-    let initalized = HandShake_result?;
+    let initialized = handshake_result?;
     let status = shutdown_result?;
 
     if !status.success() {
@@ -110,12 +115,11 @@ async fn run(arg: Args) -> Result<(), Box<dyn Error>> {
     }
 
     println!("handshake=ok");
-    println!("user_agent={}", initalized.user_agent);
-    println!("codex_home={}", initalized.codex_home.display());
-    println!("platfrom_family={}", initalized.platform_family);
-    println!("platfrom_os={}", initalized.platform_os);
+    println!("user_agent={}", initialized.user_agent);
+    println!("codex_home={}", initialized.codex_home.display());
+    println!("platform_family={}", initialized.platform_family);
+    println!("platform_os={}", initialized.platform_os);
     Ok(())
-
 }
 
 fn take_child_pipes(
@@ -128,13 +132,12 @@ fn take_child_pipes(
     let stdin = child
         .stdin()
         .take()
-        .or_or_else(|| io::Error::other("Codex child stdin was not piped"))?;
+        .ok_or_else(|| io::Error::other("Codex child stdin was not piped"))?;
 
     let stdout = child
         .stdout()
         .take()
         .ok_or_else(|| io::Error::other("Codex child stdout was not piped"))?;
-
 
     let stderr = child
         .stderr()
@@ -142,11 +145,9 @@ fn take_child_pipes(
         .ok_or_else(|| io::Error::other("Codex child stderr was not piped"))?;
 
     Ok((stdin, stdout, stderr))
-
 }
 
-
-async fn wait_or_skill(
+async fn wait_or_kill(
     child: &mut dyn ChildWrapper,
     grace_period: Duration,
 ) -> io::Result<ExitStatus> {
@@ -167,18 +168,16 @@ async fn wait_or_skill(
             }
 
             return child.wait().await;
-
         }
 
         sleep(EXIT_POLL_INTERVAL).await;
     }
 }
 
-
-async fn finish_std_err_task(stderr_task: &mut JoinHandle<io::Result<()>>) {
-    match timeout(STDERR_DAIN_TIMEOUT, &mut *stderr_task).await {
+async fn finish_stderr_task(stderr_task: &mut JoinHandle<io::Result<()>>) {
+    match timeout(STDERR_DRAIN_TIMEOUT, &mut *stderr_task).await {
         Ok(Ok(Ok(()))) => {}
-        Ok(Ok(Err(error))) => debug!(%error, "failed while deaining codex stderr"),
+        Ok(Ok(Err(error))) => debug!(%error, "failed while draining Codex stderr"),
         Ok(Err(error)) => debug!(%error, "Codex stderr task failed"),
 
         Err(_) => {
@@ -186,18 +185,17 @@ async fn finish_std_err_task(stderr_task: &mut JoinHandle<io::Result<()>>) {
             if let Err(error) = stderr_task.await
                 && !error.is_cancelled()
             {
-                debug!(%error, "Codex stderr task failed whiled while being stopped");
+                debug!(%error, "Codex stderr task failed while being stopped");
             }
         }
     }
 }
 
 fn init_tracing() {
-    let filter = EvnFilter::try_from_default_env()
-        .unwarp_or_else(|_| EnvFilter::new("brigehub_codex_spike=info,codex_app_server=off"));
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("bridgehub_codex_spike=info,codex_app_server=off"));
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(io::stderr)
         .init();
 }
-

@@ -176,15 +176,16 @@ mod tests {
     use serde_json::{Value, json};
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-    fn add_server_arguments_use_supported_stdio_transport() {
+    #[test]
+    fn app_server_arguments_use_the_supported_stdio_transport() {
         assert_eq!(
             super::app_server_args(),
-            ["app_server", "--listen", "stdio://"]
+            ["app-server", "--listen", "stdio://"]
         );
     }
 
     #[tokio::test]
-    async fn handshake_reprots_eof_before_response() {
+    async fn handshake_reports_eof_before_response() {
         let mut reader = BufReader::new(tokio::io::empty());
         let mut writer = tokio::io::sink();
 
@@ -210,7 +211,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handshake_proserves_server_error() {
+    async fn handshake_preserves_server_error() {
         let response =
             b"{\"id\":0,\"error\":{\"code\":-32600,\"message\":\"initialize rejected\"}}\n";
         let mut reader = BufReader::new(&response[..]);
